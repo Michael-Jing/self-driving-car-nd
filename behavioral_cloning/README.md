@@ -1,8 +1,8 @@
 ## data preprocessing
-    
+
    -  The top 1/3 of the image is sky most of the time, and the bottom 1/5 is head of the car, so in order to reduce input data size and speed up training, I remove the top 1/3 and the bottom 1/5 of the image,
    -  In order to reduce input data size and speedup training further, I decide to resize image to size 32  $\times$ 64. In my initial tryings, I was using image size 66 $\times $ 200, as stated in the paper End to End Learning for Self-Driving Cars, but when was trying to tune the model architecture, the training process is quite slow, so I decided to reduce the image size to as small as possible.
-   -  Normalization of input data is must in order to make the training process easier and more efficient, so I divided pixel values by 255 to scale the values to the range of 0 and 1. 
+   -  Normalization of input data is must in order to make the training process easier and more efficient, so I divided pixel values by 255 to scale the values to the range of 0 and 1.
    -  In order to evaluate the training process and notice overfitting when it happens, I split data into training and validation set.
    -  In my initial tryings, the car drives well on the first track, but hit the border of the road somewhere in the second track, so obviously I need more data to teach the model to recover when the car is about to hit the road border, but it is not easy to gain that kind of data, so I used a trick instead by multiplying the steering angles in training set by 1.2. When the original steering angle is small, it is also small after been multiplied by 1.2, but when the original steering angle is large, it could be much larger after been multiplied by 1.2, so preventing the car hid the road border effectively.
 
@@ -12,15 +12,17 @@
 
    -   In order to gain as much training data as possible, I   used images from the left and right cameras also and adjust steering angles accordingly. When the image from the left camera is used, add 0.25 to the steering angle, when the image from the right camera is used, minus 0.25 to the steering angle.
    -  In order to teach the model to drive on different weather and lighting conditions, I randomly changed the brightness of the image, as showed in the following image.
-    ![random brightness augmentation](https://cdn-images-1.medium.com/max/800/1*LTg_FFgMF1Tgw-dI93lgXw.png)
+
+  ![random brightness augmentation](https://cdn-images-1.medium.com/max/800/1*LTg_FFgMF1Tgw-dI93lgXw.png)
    -  Mountains, trees, even clouds will project shadows on the ground and thus in the images seen by the car camera, so I added random shadows on the image to teach the model to deal with this effect, as showed in the following image.
-   ![random shadows augmentation](https://cdn-images-1.medium.com/max/800/1*I5MyRkjrMc2ohpLL-VxJUA.png)
+
+  ![random shadows augmentation](https://cdn-images-1.medium.com/max/800/1*I5MyRkjrMc2ohpLL-VxJUA.png)
    **Please be aware that the above three technique including the images showed are from this [blog](https://chatbotslife.com/using-augmentation-to-mimic-human-driving-496b569760a9#.tfansn960)**
-  
+
    -   zoom images randomly within the range of 10%
 
 ## Model Architecture
-    
+
 The model architecture I used is a simplified version of the one used in the paper End to End Learning for Self-Driving Cars published by researchers in NVIDIA Corporation.
 Frankly speaking, I don't know what would be a general approach to designing neural network architecture except that convolutional neural networks is the common practice in the field of image recognition. So in this task, if I don't read the paper mentioned above, my strategy would be try with a network with a few convolutional lays followed by some number of fully connected layers and then the final output layer, and experiment on parameters like the number of layers, the number of filters, filter size, filter stride, number of neurons in fully connected layers.
 
