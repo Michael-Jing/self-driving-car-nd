@@ -21,8 +21,8 @@
 
 ## Model Architecture
     
-    The model architecture I used is a simplified version of the one used in the paper End to End Learning for Self-Driving Cars published by researchers in NVIDIA Corporation.
-    Frankly speaking, I don't know what would be a general approach to designing neural network architecture except that convolutional neural networks is the common practice in the field of image recognition. So in this task, if I don't read the paper mentioned above, my strategy would be try with a network with a few convolutional lays followed by some number of fully connected layers and then the final output layer, and experiment on parameters like the number of layers, the number of filters, filter size, filter stride, number of neurons in fully connected layers.
+The model architecture I used is a simplified version of the one used in the paper End to End Learning for Self-Driving Cars published by researchers in NVIDIA Corporation.
+Frankly speaking, I don't know what would be a general approach to designing neural network architecture except that convolutional neural networks is the common practice in the field of image recognition. So in this task, if I don't read the paper mentioned above, my strategy would be try with a network with a few convolutional lays followed by some number of fully connected layers and then the final output layer, and experiment on parameters like the number of layers, the number of filters, filter size, filter stride, number of neurons in fully connected layers.
 
 My model architecture is summarized as follows:
 
