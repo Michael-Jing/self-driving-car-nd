@@ -124,10 +124,8 @@ To augment the data set
 
 I then preprocessed this data by
 - remove the top 1/3 and bottom 1/5 of the image, to speedup training,
-- resize the image to size 32 $\times$ 64, to speedup training,
+- resize the image to size 32 by 64, to speedup training,
 - rescale the pixel values to the range 0 and 1
-
-
 - I finally randomly shuffled the data set and put 33% of the data into a validation set.
 
 I used this training data for training the model. The validation set helped determine if the model was over or under fitting. I used generator to feed data to the training process, so number of epochs wasn't necessary.  I used an adam optimizer so that manually training the learning rate wasn't necessary.
