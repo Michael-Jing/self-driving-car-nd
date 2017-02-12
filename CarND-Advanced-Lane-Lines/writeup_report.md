@@ -41,17 +41,17 @@ I start by preparing "object points", which will be the (x, y, z) coordinates of
 
 I then used the output `objpoints` and `imgpoints` to compute the camera calibration and distortion coefficients using the `cv2.calibrateCamera()` function.  I applied this distortion correction to the test image using the `cv2.undistort()` function and obtained this result:
 
-![distortion corrected][./writeup_images/camera_calibration_img.jpg]
+![distortion corrected](./writeup_images/camera_calibration_img.jpg)
 
 ###Pipeline (single images)
 
 ####1. Provide an example of a distortion-corrected image.
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
-![distortion corrected][./writeup_images/camera_calibration_img.jpg]
+![distortion corrected](./writeup_images/camera_calibration_img.jpg)
 ####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
 I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 112 through 162 in `advanced_lane_finding.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
-![binary_image][./writeup_images/binary_image.jpg]
+![binary_image](./writeup_images/binary_image.jpg)
 
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
@@ -83,7 +83,7 @@ I use another function `transform` (line 72 through 73) which take in an image a
 
 I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
 
-![transformed][./writeup_images/transform.jpg]
+![transformed](./writeup_images/transform.jpg)
 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
@@ -95,7 +95,7 @@ I created a class `CPointsDetector` (line 263 through 322) to find pixels on the
 
 3. use the found points to fit a polynomial curve, this is quite straightforward with the `np.polyfit` function
 
-![lane_line_pixels][./writeup_images/pixel_locating_draw_back.jpg]
+![lane_line_pixels](./writeup_images/pixel_locating_draw_back.jpg)
 
 ####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
@@ -105,7 +105,7 @@ I computed curvature in the function `compute_curvatuer` (line 324 through line 
 
 I implemented this step in lines # through # in my code in `advanced_lane_finding.py` in the function `draw_back()` (line 343 through line 367).  the result is shown in the upper right corner of the following image.
 
-![map lane line back][./writeup_images/pixel_locating_draw_back.jpg]
+![map lane line back](./writeup_images/pixel_locating_draw_back.jpg)
 ---
 
 ###Pipeline (video)
@@ -130,5 +130,8 @@ Here I'll talk about the approach I took, what techniques I used, what worked an
 3. In order to choose the thresholding for max and min lane line width, and max allowed differ with previous fit, I used logging to record the values and then made my decision based on the recorded values.
 
 Where will my pipeline likely fail?
+
 1. Picture with very strong lightning or too dark, the sobel edge detection may still work under those conditions, but the color thresholding will definitely fail. I am thinking about making the image more sharper, ie, enhancing contrast and denoising.
+
+
 2. My approach failed on the harder challenge video, and I think it may need a 3 order polynomial to fit the harder turns.
