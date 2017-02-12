@@ -35,7 +35,7 @@ You're reading it!
 
 ####1. Briefly state how you computed the camera matrix and distortion coefficients. Provide an example of a distortion corrected calibration image.
 
-The code for this step is contained in lines 14 through 47 of the file called `advanced_lane_finding.py`).  
+The code for this step is contained in lines 14 through 48 of the file called `advanced_lane_finding.py`).  
 
 I start by preparing "object points", which will be the (x, y, z) coordinates of the chessboard corners in the world. Here I am assuming the chessboard is fixed on the (x, y) plane at z=0, such that the object points are the same for each calibration image.  Thus, `objp` is just a replicated array of coordinates, and `objpoints` will be appended with a copy of it every time I successfully detect all chessboard corners in a test image.  `imgpoints` will be appended with the (x, y) pixel position of each of the corners in the image plane with each successful chessboard detection.  
 
@@ -49,13 +49,13 @@ I then used the output `objpoints` and `imgpoints` to compute the camera calibra
 To demonstrate this step, I will describe how I apply the distortion correction to one of the test images like this one:
 ![distortion corrected][./writeup_images/camera_calibration_img.jpg]
 ####2. Describe how (and identify where in your code) you used color transforms, gradients or other methods to create a thresholded binary image.  Provide an example of a binary image result.
-I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 92 through 149 in `advanced_lane_finding.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
+I used a combination of color and gradient thresholds to generate a binary image (thresholding steps at lines 112 through 162 in `advanced_lane_finding.py`).  Here's an example of my output for this step.  (note: this is not actually from one of the test images)
 
 ![binary_image][./writeup_images/binary_image.jpg]
 
 ####3. Describe how (and identify where in your code) you performed a perspective transform and provide an example of a transformed image.
 
-The code for my perspective transform includes a function called `get_transform_matrix`, which appears in lines 49 through 65 in the file `advanced_lane_finding.py`  The `(get_transform_matrix)` function takes as inputs an image (`img`), and compute the perspective transformation matrix for images of that size,  I chose to hardcode the source and destination points in the following manner:
+The code for my perspective transform includes a function called `get_transform_matrix`, which appears in lines 50 through 68 in the file `advanced_lane_finding.py`  The `(get_transform_matrix)` function takes as inputs an image (`img`), and compute the perspective transformation matrix for images of that size,  I chose to hardcode the source and destination points in the following manner:
 
 ```
 src = np.float32(
@@ -79,7 +79,7 @@ This resulted in the following source and destination points:
 | 1127, 720     | 960, 720      |
 | 695, 460      | 960, 0        |
 
-I use another function `transform` which take in an image and a transformation matrix to do perspective transformation.
+I use another function `transform` (line 72 through 73) which take in an image and a transformation matrix to do perspective transformation.
 
 I verified that my perspective transform was working as expected by drawing the `src` and `dst` points onto a test image and its warped counterpart to verify that the lines appear parallel in the warped image.
 
@@ -88,10 +88,10 @@ I verified that my perspective transform was working as expected by drawing the 
 ####4. Describe how (and identify where in your code) you identified lane-line pixels and fit their positions with a polynomial?
 
 1. find peaks of left and right lane line
-I used a function `get_histogram` to sum each column(only the bottom half) in the thresholded binary image, then another function `find_peaks` to find the column number ie x position with the most pixels turned on.
+I used a function `get_histogram` (line 370 through 372) to sum each column(only the bottom half) in the thresholded binary image, then another function `find_peaks` (line 374 through 378) to find the column number ie x position with the most pixels turned on.
 
-2. use sliding window to find points on the thresholded binary image to find points on the left and right lane line
-I created a class `CPointsDetector` to find pixels on the lane lines. The idea is the same as demonstrated in the course. ie, sliding through bands of the binary image from bottom up, in each band, search through a region around a center determined by peaks or points in the previous band, find the window with the most pixels turned on and append the position of those turned on pixels to the final result. The detected points are show in the below picture with read color.
+2. I used a sliding window to find points on the left and right lane line
+I created a class `CPointsDetector` (line 263 through 322) to find pixels on the lane lines. The idea is the same as demonstrated in the course, ie, sliding through bands of the binary image from bottom up, in each band, searching through a region around a center determined by peaks or points in the previous band, finding the window with the most pixels turned on and appending the position of those turned on pixels to the final result. The detected points are show in the left part of the below picture with read color.
 
 3. use the found points to fit a polynomial curve, this is quite straightforward with the `np.polyfit` function
 
@@ -99,11 +99,11 @@ I created a class `CPointsDetector` to find pixels on the lane lines. The idea i
 
 ####5. Describe how (and identify where in your code) you calculated the radius of curvature of the lane and the position of the vehicle with respect to center.
 
-I computed curvature in the function `compute_curvatuer`, and vehicle position in the function `vechile_position`, vehicle position is just the difference between lane center and image center.
+I computed curvature in the function `compute_curvatuer` (line 324 through line 328), and vehicle position in the function `vechile_position` (line 334, 340), vehicle position is just the difference between lane center and image center.
 
 ####6. Provide an example image of your result plotted back down onto the road such that the lane area is identified clearly.
 
-I implemented this step in lines # through # in my code in `advanced_lane_finding.py` in the function `draw_back()`.  the result is shown in the upper right corner of the following image.
+I implemented this step in lines # through # in my code in `advanced_lane_finding.py` in the function `draw_back()` (line 343 through line 367).  the result is shown in the upper right corner of the following image.
 
 ![map lane line back][./writeup_images/pixel_locating_draw_back.jpg]
 ---
@@ -128,3 +128,7 @@ Here I'll talk about the approach I took, what techniques I used, what worked an
 2. The above mentioned bitwise or works well in most cases, but sometimes it will filter out lane lines when the detected pixels are not too much, so I added blur to the result of color thresholding before bitwise or with edge detected by sobel.
 
 3. In order to choose the thresholding for max and min lane line width, and max allowed differ with previous fit, I used logging to record the values and then made my decision based on the recorded values.
+
+Where will my pipeline likely fail?
+1. Picture with very strong lightning or too dark, the sobel edge detection may still work under those conditions, but the color thresholding will definitely fail. I am thinking about making the image more sharper, ie, enhancing contrast and denoising.
+2. My approach failed on the harder challenge video, and I think it may need a 3 order polynomial to fit the harder turns.
