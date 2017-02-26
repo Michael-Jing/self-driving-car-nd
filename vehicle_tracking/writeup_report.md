@@ -40,7 +40,7 @@ the code there calls a function named extract_feature_from_array which is define
 
 I use the "YUV" color space and extract hog features from all 3 channels.
 
-![car and not car image]("./output_images/car_not_car.jpg")
+![car and not car image](./output_images/car_not_car.jpg)
 
 
 
@@ -48,7 +48,7 @@ I use the "YUV" color space and extract hog features from all 3 channels.
 
 The hog features part of course asked me to experiment with different parameters to how it works, and I find that the *"YUV"* channels works the best so I used channel "YNV" in my solution. I also get the feel that use *"ALL"* channel works better than a single channel in when was playing with the course content on hog features. It seems that 8 is a quite reasonable value for pix_per_cell considering the image size in the training data, but I changed it to *16* in order to reduce feature vector dimension and speedup training. As for cell_per_block, when I was playing with different parameters in the course, 4 works better than 2, but later I changed it to *2* when training my model to speedup the training process.
 
-![hog examples]("./output_images/hogs.jpg")
+![hog examples](./output_images/hogs.jpg)
 
 ####3. Describe how (and identify where in your code) you trained a classifier using your selected HOG features (and color features if you used them).
 
@@ -77,13 +77,13 @@ should be able to cover cars from small (far) to large (near). As to
 overlap, I used 0.75, it's kind of gut feeling.
 
 
-![sliding windows]["./output_images/sliding_windows.jpg"]
+![sliding windows](./output_images/sliding_windows.jpg)
 
 ####2. Show some examples of test images to demonstrate how your pipeline is working.  What did you do to optimize the performance of your classifier?
 
 Ultimately I searched on six scales using YUV 3-channel HOG features plus histograms of color in the feature vector, which provided a nice result.  Here are some example images:
 
-![sliding window detection result]["./output_images/sliding_window.jpg"]
+![sliding window detection result](./output_images/sliding_window.jpg)
 ---
 
 ### Video Implementation
@@ -100,13 +100,13 @@ Here's an example result showing the heatmap from a series of frames of video, t
 
 ### Here are six frames and their corresponding heatmaps:
 
-![boxes and heat]["./output_images/boxes_and_heat.jpg"]
+![boxes and heat](./output_images/boxes_and_heat.jpg)
 
 ### Here is the output of `scipy.ndimage.measurements.label()` on the integrated heatmap from all six frames:
 ![label map]["./output_images/label.jpg"]
 
 ### Here the resulting bounding boxes are drawn onto the last frame in the series:
-![final result]["./output_images/bboxes.jpg"]
+![final result](./output_images/bboxes.jpg)
 
 
 
@@ -129,4 +129,4 @@ technique like signal filters may help.
 a real self driving car, because I think the computation resources will be limited. I am thinking an algorithm that search recursively in smaller and smaller regions, and if it's certain there is no car in a region, then it stops
 search subregions of this region may help to achieve better performance.
 
-4. A neural network classifier may do better.
+4. A neural network classifier will definitely do better.
