@@ -1,6 +1,6 @@
-
 from scipy.misc import imread
 import cv2
+import numba
 
 from sklearn.externals import joblib
 
@@ -14,8 +14,8 @@ from scipy.ndimage.measurements import label
 import glob
 import matplotlib.pyplot as plt
 
-def extract_image(xmin, xmax, ymin, ymax, file, size):
 
+def extract_image(xmin, xmax, ymin, ymax, file, size):
     image = imread(file)
     extracted = image[ymin:ymax, xmin:xmax, :]
     return cv2.resize(extracted, size)
@@ -29,9 +29,11 @@ def get_label(x):
 
 
 # Define a function to return HOG features and visualization
-def get_hog_features(img, orient, pix_per_cell, cell_per_block,
+@numba.jit()
+def get_hog_features(image, orient, pix_per_cell, cell_per_block,
                      vis=False, feature_vec=True):
     # Call with two outputs if vis==True
+    img = np.copy(image)
     if vis == True:
         features, hog_image = hog(img, orientations=orient,
                                   pixels_per_cell=(pix_per_cell, pix_per_cell),
@@ -69,10 +71,11 @@ def color_hist(img, nbins=32, bins_range=(0, 256)):
     # Return the individual histograms, bin_centers and feature vector
     return hist_features
 
+
 def extract_features_from_array(imgs, color_space='RGB', spatial_size=(32, 32),
-                     hist_bins=32, orient=9,
-                     pix_per_cell=8, cell_per_block=2, hog_channel=0,
-                     spatial_feat=True, hist_feat=True, hog_feat=True):
+                                hist_bins=32, orient=9,
+                                pix_per_cell=8, cell_per_block=2, hog_channel=0,
+                                spatial_feat=True, hist_feat=True, hog_feat=True):
     # Create a list to append feature vectors to
     features = []
     # Iterate through the list of images
@@ -119,6 +122,49 @@ def extract_features_from_array(imgs, color_space='RGB', spatial_size=(32, 32),
         features.append(np.concatenate(file_features))
     # Return list of feature vectors
     return np.array(features)
+
+
+def extract_feature_one_img(image, spatial_size=(32, 32),
+                            hist_bins=32, orient=9,
+                            pix_per_cell=8, cell_per_block=2, hog_channel=0,
+                            spatial_feat=True, hist_feat=True, hog_feat=True):
+    # Create a list to append feature vectors to
+    # Iterate through the list of images
+    file_features = []
+    # Read in each one by one
+
+
+    feature_image = np.copy(image)
+
+    if spatial_feat == True:
+        spatial_features = bin_spatial(feature_image, size=spatial_size)
+        file_features.append(spatial_features)
+    if hist_feat == True:
+        # Apply color_hist()
+        hist_features = color_hist(feature_image, nbins=hist_bins)
+        file_features.append(hist_features)
+    if hog_feat == True:
+        # Call get_hog_features() with vis=False, feature_vec=True
+        if hog_channel == 'ALL':
+            hog_features = []
+            for channel in range(feature_image.shape[2]):
+                hog_features.append(get_hog_features(feature_image[:, :, channel],
+                                                     orient, pix_per_cell, cell_per_block,
+                                                     vis=False, feature_vec=True))
+            hog_features = np.ravel(hog_features)
+        else:
+            hog_features = get_hog_features(feature_image[:, :, hog_channel], orient,
+                                            pix_per_cell, cell_per_block, vis=False, feature_vec=True)
+        # Append the new feature vector to the features list
+        file_features.append(hog_features)
+    # Return list of feature vectors
+    feature_num = len(file_features)
+    if feature_num == 1:
+        return file_features[0]
+    elif feature_num == 2:
+        return np.concatenate((file_features[0], file_features[1]))
+    else:
+        return np.concatenate((file_features[0], file_features[1], file_features[2]))
 
 
 # Define a function to extract features from a list of images
@@ -175,17 +221,40 @@ def extract_features(imgs, color_space='RGB', spatial_size=(32, 32),
     return features
 
 
+def extract_hog_features_one_img(image, spatial_size=(32, 32),
+                                 hist_bins=32, orient=9,
+                                 pix_per_cell=8, cell_per_block=2, hog_channel=0,
+                                 spatial_feat=True, hist_feat=True, hog_feat=True):
+    feature_image = np.copy(image)
+
+    # Call get_hog_features() with vis=False, feature_vec=True
+    hog_features = []
+    if hog_channel == 'ALL':
+        for channel in range(feature_image.shape[2]):
+            hog_features.append(get_hog_features(feature_image[:, :, channel],
+                                                 orient, pix_per_cell, cell_per_block,
+                                                 vis=False, feature_vec=False))
+
+    else:
+        hog_features.append(get_hog_features(feature_image[:, :, hog_channel], orient,
+                                             pix_per_cell, cell_per_block, vis=False, feature_vec=False))
+    # Append the new feature vector to the features list
+    return hog_features
+
+
 # Define a function that takes an image,
 # start and stop positions in both x and y,
 # window size (x and y dimensions),
 # and overlap fraction (for both x and y)
 def window_slider(img, params):
-
     window_list = []
     for param in params:
-        window_list += slide_window(img, y_start_stop=[param[1]+360, param[2]+360], xy_window=(param[0], param[0]), xy_overlap=(0.75, 0.75))
+        window_list += slide_window(img, y_start_stop=[param[1], param[2]], xy_window=(param[0], param[0]),
+                                    xy_overlap=(0.75, 0.75))
     return window_list
 
+
+@numba.jit()
 def _hog_for_region(img, window_sizes, orient, pix_per_cell, cell_per_block):
     """
     extract hog features for the entire image region, for only one channel, return results as multi dimensional array
@@ -194,27 +263,29 @@ def _hog_for_region(img, window_sizes, orient, pix_per_cell, cell_per_block):
     """
     hog_features = []
     for window_size in window_sizes:
-        scaling_factor = window_size / 64
-        scaled_img = imresize(img,  (int(img.shape[0] / scaling_factor), int(img.shape[1] / scaling_factor)))
-        features = get_hog_features(scaled_img, orient=orient, pix_per_cell=pix_per_cell,  cell_per_block=cell_per_block,
+        scaling_factor = 64 / window_size
+        scaled_img = imresize(img, scaling_factor)
+        features = get_hog_features(scaled_img, orient=orient, pix_per_cell=pix_per_cell, cell_per_block=cell_per_block,
                                     feature_vec=False)
         hog_features.append(features)
     return hog_features
 
+@numba.jit()
 def hog_for_region(img, window_sizes, orient, pix_per_cell, cell_per_block, channel):
     all_channel_hog_features = []
     if channel == "ALL":
         for i in range(3):
-            hog_features = _hog_for_region(img[:,:,i], window_sizes, orient, pix_per_cell, cell_per_block)
+            hog_features = _hog_for_region(img[:, :, i], window_sizes, orient, pix_per_cell, cell_per_block)
             all_channel_hog_features.append(hog_features)
     else:
-        hog_features = _hog_for_region(img[:,:,channel], window_sizes, orient, pix_per_cell, cell_per_block)
+        hog_features = _hog_for_region(img[:, :, channel], window_sizes, orient, pix_per_cell, cell_per_block)
         all_channel_hog_features.append(hog_features)
     return all_channel_hog_features
 
+
 def draw_labeled_bboxes(img, labels):
     # Iterate through all detected cars
-    for car_number in range(1, labels[1]+1):
+    for car_number in range(1, labels[1] + 1):
         # Find pixels with each car_number label value
         nonzero = (labels[0] == car_number).nonzero()
         # Identify x and y values of those pixels
@@ -223,23 +294,22 @@ def draw_labeled_bboxes(img, labels):
         # Define a bounding box based on min/max x and y
         bbox = ((np.min(nonzerox), np.min(nonzeroy)), (np.max(nonzerox), np.max(nonzeroy)))
         # Draw the box on the image
-        cv2.rectangle(img, bbox[0], bbox[1], (0,0,255), 6)
+        cv2.rectangle(img, bbox[0], bbox[1], (0, 0, 255), 6)
     # Return the image
     return img
 
-clf = joblib.load("./svm_classifier.pkl")
-feature_scaler = joblib.load("./feature_scaler.pkl")
-def vehicle_detection_pipeline(image, feature_scaler, clf):
 
+
+def vehicle_detection_pipeline(image, feature_scaler, clf):
     heat_map = np.zeros_like(image)
     # get windows
     # get hog feature for the whole region
     # iterator through windows
-        # select window region out
-        # compute spatial and color features
-        # select hog features
-        # compose feature vector and predict
-        # if positive, update heat map
+    # select window region out
+    # compute spatial and color features
+    # select hog features
+    # compose feature vector and predict
+    # if positive, update heat map
     # threshold heatmap to remove false positives
     # the find labels part
     # draw back
@@ -289,12 +359,15 @@ def vehicle_detection_pipeline(image, feature_scaler, clf):
         window_size = x2 - x1
         if window_size != 64:
             local_image = imresize(local_image, (64, 64))
-        spatial_color_features = get_spatial_color_features(local_image, spatial_feat, hist_feat, spatial_size, hist_bins)
+        spatial_color_features = get_spatial_color_features(local_image, spatial_feat, hist_feat, spatial_size,
+                                                            hist_bins)
         hog_features = []
         hog_indiy1, hog_indiy2, hog_indix1, hog_indix2 = get_hog_selector(window)
         for channel_hog_features in whole_hog_features:
             channel_hog_features_current_window_size = channel_hog_features[window_size2indices.get(window_size)]
-            hog_features.append(channel_hog_features_current_window_size[hog_indiy1: hog_indiy1 + 5, hog_indix1: hog_indix1 + 5, :, :, :])
+            hog_features.append(
+                channel_hog_features_current_window_size[hog_indiy1: hog_indiy1 + 5, hog_indix1: hog_indix1 + 5, :, :,
+                :])
         hog_features = np.ravel(hog_features)
         features = np.concatenate((spatial_color_features, hog_features))
         features = feature_scaler.transform(features)
@@ -309,44 +382,31 @@ def vehicle_detection_pipeline(image, feature_scaler, clf):
     return img
 
 
-
-
-
-
-
-
-
-
-
-
 def get_spatial_color_features(image, spatial_feat, hist_feat, spatial_size, hist_bins):
     # Iterate through the list of images
     file_features = []
     feature_image = image
 
     if spatial_feat == True:
-        spatial_features = bin_spatial(feature_image, size=spatial_size)
+        spatial_features = bin_spatial(feature_image, size=(spatial_size, spatial_size))
         file_features.append(spatial_features)
     if hist_feat == True:
-            # Apply color_hist()
+        # Apply color_hist()
         hist_features = color_hist(feature_image, nbins=hist_bins)
         file_features.append(hist_features)
 
     return (np.concatenate(file_features))
 
 
-
-def get_hog_selector(window):
-
-    top_left = window[0]
-    bottom_right = window[1]
-    window_size = bottom_right[0] - top_left[0]
+def get_hog_selector(window, pix_per_cell):
+    (x1, y1), (x2, y2) = window
+    window_size = x2 - x1
     scale_factor = window_size / 64
 
-    y_ind1 = (top_left[1] - 360) / (8 * scale_factor)
-    y_ind2 = (bottom_right[1] - 360) / (8 * scale_factor)
-    x_ind1 = top_left[0] / (8 * scale_factor)
-    x_ind2 = bottom_right[0] / (8 * scale_factor)
+    y_ind1 = y1 / (pix_per_cell * scale_factor)
+    y_ind2 = y2 / (pix_per_cell * scale_factor)
+    x_ind1 = x1 / (pix_per_cell * scale_factor)
+    x_ind2 = x2 / (pix_per_cell * scale_factor)
     if y_ind1 < 0:
         print(window)
     return int(y_ind1), int(y_ind2), int(x_ind1), int(x_ind2)
@@ -370,8 +430,8 @@ def slide_window(img, x_start_stop=[None, None], y_start_stop=[None, None],
     nx_pix_per_step = np.int(xy_window[0] * (1 - xy_overlap[0]))
     ny_pix_per_step = np.int(xy_window[1] * (1 - xy_overlap[1]))
     # Compute the number of windows in x/y
-    nx_windows = np.int((xspan - xy_window[0])/ nx_pix_per_step) + 1
-    ny_windows = np.int((yspan - xy_window[1])/ ny_pix_per_step) + 1
+    nx_windows = np.int((xspan - xy_window[0]) / nx_pix_per_step) + 1
+    ny_windows = np.int((yspan - xy_window[1]) / ny_pix_per_step) + 1
     # Initialize a list to append window positions to
     window_list = []
     # Loop through finding x and y window positions
@@ -486,18 +546,33 @@ def search_windows(img, windows, clf, scaler, color_space='RGB',
     # 8) Return windows for positive detections
     return on_windows
 
-class CVehicleDetector(object):
 
+def singleton(cls, *args, **kw):
+    instances = {}
+
+    def _singleton():
+        if cls not in instances:
+            instances[cls] = cls(*args, **kw)
+        return instances[cls]
+
+    return _singleton
+
+
+@singleton
+class CVehicleDetector(object):
     def __init__(self):
         # define all parameters need to be pre defined
         # keep heat map
-        self.clf = joblib.load("./svm_classifier.pkl")
-        self.feature_scaler = joblib.load("./feature_scaler.pkl")
+        self.clf = joblib.load("./svm_classifier2.pkl")
+        self.feature_scaler = joblib.load("./feature_scaler2.pkl")
+       # self.pca = joblib.load("pca2.pkl")
         self.heat_map_decay_factor = 0.9
         self.heat_map = np.zeros((720, 1280))
 
-        self.window_params = [[64, 0, 128], [96, 8, 224], [128, 16, 256], [160, 24, 288], [224, 32, 320], [320, 40, 360]]
-        self.window_sizes = [64, 96, 128, 160, 224, 320]
+        self.window_params = [ [96, 8, 196], [112, 8, 196], [136, 8, 256], [160, 16, 288], [192, 32, 320], [224, 48, 320]]
+        self.window_sizes = [96, 112, 136, 160, 192, 224]
+        # self.window_params = [[64, 0, 360]]
+        # self.window_sizes = [64]
 
         # a dict to get window size position in the window_sizes list
         self.window_size2indices = {}
@@ -505,67 +580,113 @@ class CVehicleDetector(object):
             self.window_size2indices[j] = i
 
         self.orient = 9
-        self.pix_per_cell = 8
-        self.cell_per_block = 4
+        self.pix_per_cell = 16
+        self.cell_per_block = 2
         self.color_space = "YUV"
         self.hog_channel = "ALL"
         self.spatial_feat = False
         self.spatial_size = 32
         self.hist_feat = True
-        self.hist_bins = 7
-        self.heat_map_threshold = 2
+        self.hist_bins = 32
+        self.heat_map_threshold = 6
         self.windows = window_slider(np.zeros((360, 1280)), self.window_params)
 
 
-
     def detect(self, image):
+        bottom_half = image[image.shape[0] / 2: image.shape[0], :, :]
         if self.color_space != 'RGB':
             if self.color_space == 'HSV':
-                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HSV)
+                feature_image = cv2.cvtColor(bottom_half, cv2.COLOR_RGB2HSV)
             elif self.color_space == 'LUV':
-                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2LUV)
+                feature_image = cv2.cvtColor(bottom_half, cv2.COLOR_RGB2LUV)
             elif self.color_space == 'HLS':
-                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2HLS)
+                feature_image = cv2.cvtColor(bottom_half, cv2.COLOR_RGB2HLS)
             elif self.color_space == 'YUV':
-                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YUV)
+                feature_image = cv2.cvtColor(bottom_half, cv2.COLOR_RGB2YUV)
             elif self.color_space == 'YCrCb':
-                feature_image = cv2.cvtColor(image, cv2.COLOR_RGB2YCrCb)
+                feature_image = cv2.cvtColor(bottom_half, cv2.COLOR_RGB2YCrCb)
         else:
-            feature_image = np.copy(image)
+            feature_image = np.copy(bottom_half)
 
-        whole_hog_features = hog_for_region(feature_image, self.window_sizes, self.orient, self.pix_per_cell, self.cell_per_block,
+        whole_hog_features = hog_for_region(feature_image, self.window_sizes, self.orient, self.pix_per_cell,
+                                            self.cell_per_block,
                                             self.hog_channel)
+        all_features = []
         for window in self.windows:
             # window coordinates format is (x, y)
-            x1, y1 = window[0]
-            x2, y2 = window[1]
+            (x1, y1), (x2, y2) = window
+
             local_image = feature_image[y1:y2, x1:x2, :]
             window_size = x2 - x1
             if window_size != 64:
                 local_image = imresize(local_image, (64, 64))
-            spatial_color_features = get_spatial_color_features(local_image, self.spatial_feat, self.hist_feat, self.spatial_size,
+            spatial_color_features = get_spatial_color_features(local_image, self.spatial_feat, self.hist_feat,
+                                                                self.spatial_size,
                                                                 self.hist_bins)
             hog_features = []
-            hog_indiy1, hog_indiy2, hog_indix1, hog_indix2 = get_hog_selector(window)
+            hog_indiy1, hog_indiy2, hog_indix1, hog_indix2 = get_hog_selector(window, self.pix_per_cell)
             for channel_hog_features in whole_hog_features:
-                channel_hog_features_current_window_size = channel_hog_features[self.window_size2indices.get(window_size)]
-                hog_features.append(
-                    channel_hog_features_current_window_size[hog_indiy1: hog_indiy1 + 5, hog_indix1: hog_indix1 + 5, :,
-                    :, :])
+                channel_hog_features_current_window_size = channel_hog_features[
+                    self.window_size2indices.get(window_size)]
+
+                hog_features_current_window = channel_hog_features_current_window_size[
+                                              hog_indiy1: hog_indiy2 - self.cell_per_block + 1,
+                                              hog_indix1: hog_indix2 - self.cell_per_block + 1, :, :, :]
+                hog_features.append(hog_features_current_window)
+            if len(hog_features) == 1:
+                hog_features = np.array(hog_features)
+            elif len(hog_features) == 2:
+                hog_features = np.concatenate((hog_features[0], hog_features[1]))
+            else:
+                hog_features = np.concatenate((hog_features[0], hog_features[1], hog_features[2]))
+
             hog_features = np.ravel(hog_features)
+
+
+            # hog_features_checker =
+            # spatial_color_features_check = extract_feature_one_img(local_image, spatial_size=self.spatial_size,
+#                                                                   hist_bins=self.hist_bins, orient=self.orient,
+#                                                                   pix_per_cell=self.pix_per_cell,
+#                                                                   cell_per_block=self.cell_per_block,
+#                                                                   hog_channel=self.hog_channel,
+#
+#                                                                   spatial_feat=self.spatial_feat,
+#                                                                   hist_feat=self.hist_feat, hog_feat=False)
+#
+#            assert (spatial_color_features.shape == spatial_color_features_check.shape)
+#            assert (np.all(np.absolute(spatial_color_features - spatial_color_features_check) < 1e-5))
+#
+#
+#            if hog_features.shape != hog_features_check.shape:
+#                print("hog_features shape is {}".format(hog_features.shape))
+#                print("hog_features_check shape is {}".format(hog_features_check.shape))
+#
+#            assert (hog_features.shape == hog_features_check.shape)
+#            if (np.any(np.absolute(hog_features - hog_features_check) >= 0.1)):
+#                print(np.max(np.absolute(hog_features - hog_features_check)))
+#            assert (np.all(np.absolute(hog_features - hog_features_check) < 1))
+            # hog_features = np.ravel(hog_features)
+            # hog_features = np.ravel(hog_features_check)
             features = np.concatenate((spatial_color_features, hog_features))
-            features = feature_scaler.transform(features)
-            # print("feature shape is: {}".format(features.shape))
-            result = clf.predict(features)
-            # print(result)
-            if result > 0:
-                self.heat_map[y1:y2, x1:x2] += 1
+
+            all_features.append(features)
+
+        all_features = np.array(all_features)
+        all_features_scaled = self.feature_scaler.transform(all_features)
+        # all_features_scaled_pc = self.pca.transform(all_features_scaled)
+        # print("feature shape is: {}".format(features.shape))
+        result = self.clf.predict(all_features_scaled)
+        positive_windows = result.nonzero()
+        for i in np.arange(positive_windows[0].shape[0]):
+            window_index = positive_windows[0][i]
+            (x1, y1), (x2, y2) = self.windows[window_index]
+            self.heat_map[y1 + 360:y2 + 360, x1:x2] += 1
 
         self.heat_map *= self.heat_map_decay_factor
         self.heat_map[self.heat_map < self.heat_map_threshold] = 0
+        # nonzeroy, nonzerox = self.heat_map.nonzero()
+        # for i in range(nonzeroy.shape[0]):
+        #    image[nonzeroy[i], nonzerox[i]] = 255
         labels = label(self.heat_map)
         img = draw_labeled_bboxes(image, labels)
         return img
-
-
-

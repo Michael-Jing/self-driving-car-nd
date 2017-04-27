@@ -6,9 +6,6 @@ import pickle
 from moviepy.editor import VideoFileClip
 
 
-
-
-
 def process_udacity_images():
     """
      I use this function to exctract car and pedestrain images from the images udacity provided and pickle them for
@@ -88,12 +85,18 @@ def process_other_data():
 
     pickle.dump(labels, labels_file)
 
+
 clf = joblib.load("./svm_classifier.pkl")
 feature_scaler = joblib.load("./feature_scaler.pkl")
 
-def process_image(img):
 
-    return vehicle_detection_pipeline(img, feature_scaler, clf)
+def process_image(img):
+    detector = CVehicleDetector()
+    detector.__init__()
+    return detector.detect(img)
+
+
+
 
 def process_video(name):
     file_in = name + ".mp4"
@@ -101,6 +104,7 @@ def process_video(name):
     clip1 = VideoFileClip(file_in)
     white_clip = clip1.fl_image(process_image)  # NOTE: this function expects color images!!
     white_clip.write_videofile(file_out, audio=False)
+
 
 if __name__ == "__main__":
     # process_udacity_images()

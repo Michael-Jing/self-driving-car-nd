@@ -26,7 +26,7 @@ class CTest(unittest.TestCase):
         plt.imshow(img)
         plt.show()
 
-    def test_window_slider(self):
+    def atest_window_slider(self):
         img_file = "../CarND-Vehicle-Detection/test_images/test1.jpg"
         img = imread(img_file)
         print("image shape is: {}".format(img.shape))
@@ -35,7 +35,7 @@ class CTest(unittest.TestCase):
         window_list = window_slider(bottom_half, window_params)
         print(window_list)
 
-    def test_hog_feature_region(self):
+    def atest_hog_feature_region(self):
         bottom_half = self.img[self.img.shape[0] / 2: self.img.shape[0], :]
         window_sizes = [64, 128]
         orient = 9
@@ -47,13 +47,13 @@ class CTest(unittest.TestCase):
         print("shape for hog feature when window size is 128")
 
 
-    def test_get_hog_selector(self):
+    def atest_get_hog_selector(self):
         print("test get hog selector")
         window = ((0, 368),(96, 404))
         selector = get_hog_selector(window)
         print(selector)
 
-    def test_select_hog_for_window(self):
+    def atest_select_hog_for_window(self):
         bottom_half = self.img[self.img.shape[0] / 2: self.img.shape[0], :]
         window_params = [[64, 0, 128], [96, 32, 224], [128, 16, 256], [160, 24, 288], [224, 80, 320], [320, 40, 360]]
         window_list = window_slider(bottom_half, window_params)
@@ -65,12 +65,12 @@ class CTest(unittest.TestCase):
 
 
 
-    def test_get_spatial_color_feature(self):
+    def atest_get_spatial_color_feature(self):
         spatial_color_features = get_spatial_color_features(self.img, False, True, 32, 7)
         print("spatial_color features shape")
         print(spatial_color_features.shape)
 
-    def test_vehicle_detection_pipeline(self):
+    def atest_vehicle_detection_pipeline(self):
         plt.imshow(self.img)
         plt.show()
         heat_map = vehicle_detection_pipeline(self.img)
@@ -80,6 +80,7 @@ class CTest(unittest.TestCase):
 
     def atest_window_region(self):
         window_params = [[64, 0, 128], [96, 8, 224], [128, 16, 256], [160, 24, 288], [224, 80, 320], [320, 40, 360]]
+        window_params = [[96, 8, 224], [128, 16, 256], [160, 24, 288], [224, 32, 320]]
         for param in window_params:
             window_size = param[0]
             begin = param[1]
@@ -99,6 +100,19 @@ class CTest(unittest.TestCase):
                 cv2.rectangle(draw_img, (x1, y1), (x2, y2), color, 6)
             plt.imshow(draw_img)
             plt.show()
+
+    def test_pipeline(self):
+        image_files = glob.glob("../CarND-Advanced-Lane-Lines/video_images/imgv6*.jpg")
+        detector = CVehicleDetector()
+        detector.__init__()
+        for fname in image_files:
+            image = imread(fname)
+            image_copy = np.copy(image)
+            result = detector.detect(image)
+            result = np.vstack((image_copy, result))
+            plt.imshow(result)
+            plt.show()
+
 
 if __name__ == "__main__":
     unittest.main()
